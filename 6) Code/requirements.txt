@@ -1,0 +1,43 @@
+SOFTWARE:
+- Windows 10
+
+PROGRAM:
+- R, R Studio, R Markdown
+
+DEPENDENCIES:
+- readr
+- lubridate
+- dplyr
+- tidyr
+- summarytools
+- stringr
+- likert
+- utils
+- psych
+- sjlabelled
+- expss
+- formattable
+- tableone
+- ggmap
+- sf
+- mapview
+- rworldmap
+- maptools
+- robustHD
+- usmap
+- sp
+- maps
+- ggrepel
+- ggextra
+- ggpubr
+- sjstats
+- car
+- lavaan
+- MBESS
+- pedometrics
+- semPlot
+- psycho
+- mediation
+- medflex
+- MBESS
+- diagram

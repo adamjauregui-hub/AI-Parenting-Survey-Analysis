@@ -1,0 +1,159 @@
+---
+title: "AI Parenting Survey (Numeric)"
+author: "Adam Jauregui"
+date: "6/25/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+#necessary for dfsummary
+library(knitr)
+opts_chunk$set(results = 'asis',
+               comment = NA, 
+               prompt = FALSE, 
+               cache = FALSE)
+
+library(summarytools)
+st_options(plain.ascii = FALSE, 
+           style = "rmarkdown",
+           footnote = NA,
+           subtitle.emphasis = FALSE)
+st_css()
+```
+
+```{r setup2,include=FALSE}
+library(readr)
+library(lubridate) #parse_date_time
+library(dplyr)
+library(tidyr)
+library(summarytools)
+library(stringr)
+AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19 <- read_csv("C:/Users/adamj89/Box/Parent Survey/AI Parenting Survey data from Qualtrics - numeric resp 6-21-19.csv")
+View(AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19)
+
+#rename data frame
+AI_parenting.survey<-AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19
+
+#delete 1st row since it is just the data dictionary of what the questions are
+#deleted 2nd row since it looks useless
+AI_parenting.survey<-AI_parenting.survey[-c(1:2),]
+
+#split date variables with mixed date and time entries into two columns
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(StartDate,
+           c("StartDate","StartTime"),
+           sep=" ",extra="merge")
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(EndDate,
+           c("EndDate","EndTime"),
+           sep=" ",extra="merge")
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(RecordedDate,
+           c("RecordedDate","RecordedTime"),
+           sep=" ",extra="merge")
+
+#look at structure of data frame
+str(AI_parenting.survey)
+#look for funky answers
+lapply(AI_parenting.survey,unique)
+
+#eliminate observations where they did not consent: 
+AI_par.survey.consent<-subset(AI_parenting.survey,
+                              Q1=="1") #1 means they consensted
+#elimiante observations that contain the strings "TurkPrime test" or "test"
+#first find column indices that contain the above strings
+which(sapply(AI_par.survey.consent, 
+             function(x) any(x == "test" | x=="TurkPrime test")))
+#now find the row indices that have them
+which(AI_par.survey.consent[c(77)]=="test" | 
+        AI_par.survey.consent[c(77)]=="TurkPrime test")
+which(AI_par.survey.consent[c(80)]=="test" | 
+        AI_par.survey.consent[c(80)]=="TurkPrime test")
+which(AI_par.survey.consent[c(83)]=="test" | 
+        AI_par.survey.consent[c(83)]=="TurkPrime test")
+which(AI_par.survey.consent[c(86)]=="test" | 
+        AI_par.survey.consent[c(86)]=="TurkPrime test")
+which(AI_par.survey.consent[c(93)]=="test" | 
+        AI_par.survey.consent[c(93)]=="TurkPrime test")
+which(AI_par.survey.consent[c(95)]=="test" | 
+        AI_par.survey.consent[c(95)]=="TurkPrime test")
+#delete the rows
+AI_par.survey.cleand<-AI_par.survey.consent[-c(1,251,260,261),]
+#check if it worked
+lapply(AI_par.survey.cleand,unique)
+
+#look at structure
+str(AI_par.survey.cleand)
+
+#change date columns to class "date"
+AI_par.survey.cleand$StartDate<-as.Date(
+  AI_par.survey.cleand$StartDate,format="%m/%d/%Y")
+AI_par.survey.cleand$EndDate<-as.Date(
+  AI_par.survey.cleand$EndDate,format="%m/%d/%Y")
+AI_par.survey.cleand$RecordedDate<-as.Date(
+  AI_par.survey.cleand$RecordedDate,format="%m/%d/%Y")
+
+#change time columns to class numeric using 'lubridate'
+AI_par.survey.cleand$StartTime<-hm(AI_par.survey.cleand$StartTime)
+AI_par.survey.cleand$EndTime<-hm(AI_par.survey.cleand$EndTime)
+AI_par.survey.cleand$RecordedTime<-hm(AI_par.survey.cleand$RecordedTime)
+
+#look at structure
+str(AI_par.survey.cleand)
+#change duration to numeric
+AI_par.survey.cleand$`Duration (in seconds)`<-as.numeric(
+  AI_par.survey.cleand$`Duration (in seconds)`)
+
+#All the questions should have numeric responses, but they are character. 
+#Why? Let's see if there are some that have accidental strings.
+lapply(AI_par.survey.cleand[c(21:94)],unique)
+#some observations...
+#Q12: what is your age?
+#Q14_4_Text: for specifics, some given
+#Q16: What race do you consider yourself? Multiple numeric answers selected
+#Q16_8_Text: for specifics, some given
+#q18_3_text: for specifics, some given
+#q20_7: for specifics, none given
+#q26_3: for specifics, none given
+
+#find column indices
+colnames(AI_par.survey.cleand)
+AI_par.survey.cleand[c(2,4,11,21:76,78,79,81,82,84,85,86:92,94)]<-sapply(
+  AI_par.survey.cleand[c(2,4,11,21:76,78,79,81,82,84,85,86:92,94)],as.numeric)
+str(AI_par.survey.cleand)
+
+#change -99 to NA
+AI_par.survey.cleand[AI_par.survey.cleand==-99]<-NA
+
+#recode numeric responses for the questions
+#check what they are
+lapply(AI_par.survey.cleand[c(21:94)],unique)
+#recode the numeric responses
+AI_par.survey.cleand[c(50:58)]<-sapply(AI_par.survey.cleand[c(50:58)],
+                                        function(x) x-56)
+AI_par.survey.cleand[c(59:62)]<-sapply(AI_par.survey.cleand[c(59:62)],
+                                        function(x) x-47)
+AI_par.survey.cleand[c(63:68)]<-sapply(AI_par.survey.cleand[c(63:68)],
+                                       function(x) x-42)
+AI_par.survey.cleand[c(69:74)]<-sapply(AI_par.survey.cleand[c(69:74)],
+                                       function(x) x-42)
+AI_par.survey.cleand$Q12<-AI_par.survey.cleand$Q12-119
+AI_par.survey.cleand$Q21<-AI_par.survey.cleand$Q21-70
+AI_par.survey.cleand$Q23<-AI_par.survey.cleand$Q23-6
+
+#delete the last column
+AI_par.survey.cleand<-AI_par.survey.cleand[-c(95)] #the "aid" column
+#delete all columns that only have NA values
+AI_par.survey.cleand<-AI_par.survey.cleand[
+  ,colSums(is.na(AI_par.survey.cleand)) != nrow(AI_par.survey.cleand)]
+
+#create variable of End Time minus Start Time
+EndToStart<-AI_par.survey.cleand$EndTime - AI_par.survey.cleand$StartTime
+AI_par.survey.cleand$EndToStart<-EndToStart
+AI_par.survey.cleand<-AI_par.survey.cleand[c(1:5,89,6:88)]
+```
+
+```{r chunk3,echo=FALSE}
+dfSummary(AI_par.survey.cleand[-c(2,4,5,7,8,12,13,16)], plain.ascii = FALSE, style = "grid", 
+          graph.magnif = 0.75, valid.col = FALSE, tmp.img.dir = "/tmp")
+```

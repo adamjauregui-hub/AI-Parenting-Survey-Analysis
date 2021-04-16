@@ -1,0 +1,526 @@
+---
+title: "Parent Survey Table1"
+author: "Adam Jauregui"
+date: "8/13/2019"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(lubridate) #parse_date_time
+library(dplyr)
+library(tidyr)
+library(summarytools)
+library(stringr)
+library(likert)
+library(utils)
+library(psych)
+library(sjlabelled)
+library(expss)
+library(tableone)
+header<-scan(file = "C:/Users/adamj89/Box/Parent Survey/AI Parenting Survey data from Qualtrics - numeric resp 6-21-19.csv",
+             nlines=1,what=character(),sep=",")
+AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19 <- read.csv(file="C:/Users/adamj89/Box/Parent Survey/AI Parenting Survey data from Qualtrics - numeric resp 6-21-19.csv",
+                                                                      skip=2,header=FALSE)
+View(AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19)
+names(AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19)<-header
+head(AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19)
+
+#second scan to get the second row from data set
+header2<-scan(file = "C:/Users/adamj89/Box/Parent Survey/AI Parenting Survey data from Qualtrics - numeric resp 6-21-19.csv",
+              skip=1,nlines=1,what=character(),sep=",")
+names(AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19)<-paste0(header,header2)
+
+#rename data frame
+#rename data frame
+AI_parenting.survey<-AI_Parenting_Survey_data_from_Qualtrics_numeric_resp_6_21_19
+
+#delete 1st row since it is useless
+AI_parenting.survey<-AI_parenting.survey[-c(1),]
+
+#split date variables with mixed date and time entries into two columns
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(`StartDateStart Date`,
+           c("Start Date","StartTime"),
+           sep=" ",extra="merge")
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(`EndDateEnd Date`,
+           c("End Date","EndTime"),
+           sep=" ",extra="merge")
+AI_parenting.survey<-AI_parenting.survey %>% 
+  separate(`RecordedDateRecorded Date`,
+           c("Recorded Date","RecordedTime"),
+           sep=" ",extra="merge")
+
+#change date columns to class "date"
+AI_parenting.survey$`Start Date`<-as.Date(
+  AI_parenting.survey$`Start Date`,format="%m/%d/%Y")
+AI_parenting.survey$`End Date`<-as.Date(
+  AI_parenting.survey$`End Date`,format="%m/%d/%Y")
+AI_parenting.survey$`Recorded Date`<-as.Date(
+  AI_parenting.survey$`Recorded Date`,format="%m/%d/%Y")
+
+#fix the column names
+names(AI_parenting.survey)[6]<-"IPAddress"
+names(AI_parenting.survey)[7]<-"Progress"
+names(AI_parenting.survey)[8]<-"Duration(Seconds)"
+names(AI_parenting.survey)[9]<-"Finished"
+names(AI_parenting.survey)[12]<-"ResponseID"
+names(AI_parenting.survey)[17]<-"Latitude"
+names(AI_parenting.survey)[18]<-"Longitude"
+
+#delete the last column and the three empty columns
+AI_parenting.survey<-AI_parenting.survey[-c(13,14,15,16,95)]
+
+#look at structure of data frame
+str(AI_parenting.survey)
+#look for funky answers
+lapply(AI_parenting.survey,unique)
+
+#eliminate observations where they did not consent: 
+AI_par.survey.consent<-subset(AI_parenting.survey,
+                              `Q1Consent Form`=="1") #1 means they consensted
+#elimiante observations that contain the strings "TurkPrime test" or "test"
+#first find column indices that contain the above strings
+which(sapply(AI_par.survey.consent[c(17:90)], 
+             function(x) any(x == "test" | x == "TurkPrime test")))
+#now find the row indices that have them
+which(AI_par.survey.consent[c(73)]=="test" | 
+        AI_par.survey.consent[c(73)]=="TurkPrime test")
+which(AI_par.survey.consent[c(76)]=="test" | 
+        AI_par.survey.consent[c(76)]=="TurkPrime test")
+which(AI_par.survey.consent[c(79)]=="test" | 
+        AI_par.survey.consent[c(79)]=="TurkPrime test")
+which(AI_par.survey.consent[c(82)]=="test" | 
+        AI_par.survey.consent[c(82)]=="TurkPrime test")
+which(AI_par.survey.consent[c(89)]=="test" | 
+        AI_par.survey.consent[c(89)]=="TurkPrime test")
+
+#delete the rows
+AI_par.survey.consent<-AI_par.survey.consent[-c(1,260,261),]
+#check if it worked
+lapply(AI_par.survey.consent,unique)
+
+#look at structure
+str(AI_par.survey.consent)
+
+#change date columns to class "date"
+AI_par.survey.consent$`Start Date`<-as.Date(
+  AI_par.survey.consent$`Start Date`,format="%m/%d/%Y")
+AI_par.survey.consent$`End Date`<-as.Date(
+  AI_par.survey.consent$`End Date`,format="%m/%d/%Y")
+AI_par.survey.consent$`Recorded Date`<-as.Date(
+  AI_par.survey.consent$`Recorded Date`,format="%m/%d/%Y")
+
+#delete time columns
+AI_par.survey.consent<-AI_par.survey.consent[-c(2,4,11)]
+
+#look at structure
+str(AI_par.survey.consent)
+
+#drop unused levels
+AI_par.survey.consent<-droplevels(AI_par.survey.consent)
+#investigate duration and survey question responses
+lapply(AI_par.survey.consent[c(6,15:87)],unique)
+
+#change duration and survey responses to numeric
+AI_par.survey.consent[c(6,15:69,71,72,74,75,77,78,80:85,87)]<-sapply(
+  AI_par.survey.consent[c(6,15:69,71,72,74,75,77,78,80:85,87)],
+  function(x) as.numeric(as.character(x)))
+
+#recode numeric responses for the questions
+#check what they are
+lapply(AI_par.survey.consent[c(15:69,71,72,74,75,77,78,80:85,87)],unique)
+#make -99 NA
+AI_par.survey.no99<-AI_par.survey.consent
+AI_par.survey.no99[AI_par.survey.no99==-99]<-NA
+#recode the numeric responses
+AI_par.survey.no99[c(43:51)]<-sapply(AI_par.survey.no99[c(43:51)],
+                                        function(x) x-56)
+AI_par.survey.no99[c(52:55)]<-sapply(AI_par.survey.no99[c(52:55)],
+                                        function(x) x-47)
+AI_par.survey.no99[c(56:61)]<-sapply(AI_par.survey.no99[c(56:61)],
+                                       function(x) x-42)
+AI_par.survey.no99[c(62:67)]<-sapply(AI_par.survey.no99[c(62:67)],
+                                       function(x) x-43)
+AI_par.survey.no99[,68]<-AI_par.survey.no99[,68]-119
+AI_par.survey.no99[,72]<-AI_par.survey.no99[,72]-1
+AI_par.survey.no99[,80]<-AI_par.survey.no99[,80]-70
+AI_par.survey.no99[,81]<-AI_par.survey.no99[,81]-6
+AI_par.survey.no99[,82]<-AI_par.survey.no99[,82]-6
+AI_par.survey.consent[c(43:51)]<-sapply(AI_par.survey.consent[c(43:51)],
+                                     function(x) x-56)
+AI_par.survey.consent[c(52:55)]<-sapply(AI_par.survey.consent[c(52:55)],
+                                     function(x) x-47)
+AI_par.survey.consent[c(56:61)]<-sapply(AI_par.survey.consent[c(56:61)],
+                                     function(x) x-42)
+AI_par.survey.consent[c(62:67)]<-sapply(AI_par.survey.consent[c(62:67)],
+                                     function(x) x-43)
+AI_par.survey.consent[,68]<-AI_par.survey.consent[,68]-119
+AI_par.survey.consent[,72]<-AI_par.survey.consent[,72]-1
+AI_par.survey.consent[,80]<-AI_par.survey.consent[,80]-70
+AI_par.survey.consent[,81]<-AI_par.survey.consent[,81]-6
+AI_par.survey.consent[,82]<-AI_par.survey.consent[,82]-6
+#check what they are
+lapply(AI_par.survey.no99[c(15:69,71,72,74,75,77,78,80:85,87)],unique)
+lapply(AI_par.survey.consent[c(15:69,71,72,74,75,77,78,80:85,87)],unique)
+
+#cereal
+#exclude if the youngest child was older than 5
+AI_par.survey.age5_num<-subset(AI_par.survey.no99,
+                             AI_par.survey.no99[,82]<=5)
+AI_par.survey.age5_num<-subset(AI_par.survey.consent,
+                               AI_par.survey.consent[,82]<=5)
+
+#Create duplicate survey but have the responses as factors
+AI_par.survey.age5_fact<-AI_par.survey.age5_num
+sapply(AI_par.survey.age5_fact,unique)
+#apply labels to factors and make them ordered
+#Q3
+AI_par.survey.age5_fact[c(15:20)]<-lapply(
+  AI_par.survey.age5_fact[c(15:20)],
+  function(x) factor(x,ordered=TRUE,
+                     levels=c("1","2","3","4","5"),
+                     labels=c("Not at all Important",
+                              "Slightly important","Important",
+                              "Very important","Extremely Important")))
+#Q5
+AI_par.survey.age5_fact[c(21:27)]<-lapply(
+  AI_par.survey.age5_fact[c(21:27)],
+  function(x) factor(x,ordered=TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("0 hours","<1 hour",
+                              "1 hour","2 hours","3 hours",
+                              "4+ hours")))
+#Q7
+AI_par.survey.age5_fact[c(28:35)]<-lapply(
+  AI_par.survey.age5_fact[c(28:35)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("0 hours","<1 hour",
+                              "1 hour","2 hours","3 hours",
+                              "4+ hours")))
+#Q8
+AI_par.survey.age5_fact[c(36:42)]<-lapply(
+  AI_par.survey.age5_fact[c(36:42)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5"),
+                     labels=c("0 times","1 time",
+                              "2 times","3 times",
+                              "4+ times")))
+#Q8
+AI_par.survey.age5_fact[c(43:51)]<-lapply(
+  AI_par.survey.age5_fact[c(43:51)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("Strongly Disagree","Disagree",
+                              "Slightly Disagree","Slightly Agree",
+                              "Agree","Strongly Agree")))
+#Q9
+AI_par.survey.age5_fact[c(52:55)]<-lapply(
+  AI_par.survey.age5_fact[c(52:55)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("Strongly Disagree","Disagree",
+                              "Slightly Disagree","Slightly Agree",
+                              "Agree","Strongly Agree")))
+#Q10
+AI_par.survey.age5_fact[c(56:61)]<-lapply(
+  AI_par.survey.age5_fact[c(56:61)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("Strongly Disagree","Disagree",
+                              "Slightly Disagree","Slightly Agree",
+                              "Agree","Strongly Agree")))
+#Q29
+AI_par.survey.age5_fact[c(62:67)]<-lapply(
+  AI_par.survey.age5_fact[c(62:67)],
+  function(x) factor(x,ordered = TRUE,
+                     levels=c("1","2","3","4","5","6"),
+                     labels=c("Strongly Disagree","Disagree",
+                              "Slightly Disagree","Slightly Agree",
+                              "Agree","Strongly Agree")))
+#brief questions about you and your family
+#what are these?
+lapply(AI_par.survey.age5_num[c(69:87)],class)
+#convert to factors (numeric data frame)
+AI_par.survey.age5_num[c(69)]<-lapply(
+  AI_par.survey.age5_num[c(69)],
+  function(x) factor(x,levels=c(1,2,4),labels=c("Male","Female","Other"))
+)
+AI_par.survey.age5_num[c(71)]<-lapply(
+  AI_par.survey.age5_num[c(71)],
+  function(x) factor(x,levels=c("1","2"),
+                       labels=c("Yes","No")))
+AI_par.survey.age5_num[c(72)]<-lapply(
+  AI_par.survey.age5_num[c(72)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7"),
+                       labels=c("White","Black","Hispanic",
+                                "Asian","Pacific Islander",
+                                "American Indian","Other")))
+AI_par.survey.age5_num[c(74)]<-lapply(
+  AI_par.survey.age5_num[c(74)],
+  function(x) factor(x,levels=c("1","2","3","4"),
+                       labels=c("Very Well","Well",
+                       "Not Well","Not Well At All")))
+AI_par.survey.age5_num[c(75)]<-lapply(
+  AI_par.survey.age5_num[c(75)],
+  function(x) factor(x,levels=c("1","2","3"),
+                     labels=c("English","Spanish",
+                              "Other")))
+AI_par.survey.age5_num[c(77)]<-lapply(
+  AI_par.survey.age5_num[c(77)],
+  function(x) factor(x,levels=c("1","2","3","4","5"),
+                     labels=c("I was born in the U.S.",
+                              "Less than a year",
+                              "1-2 years",
+                              "2-5 years",
+                              "5+ years")))
+AI_par.survey.age5_num[c(78)]<-lapply(
+  AI_par.survey.age5_num[c(78)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7"),
+                     labels=c("Single, Never married",
+                              "Living with a Partner",
+                              "Married","Separated",
+                              "Divorced","Widowed",
+                              "Other")))
+AI_par.survey.age5_num[c(83)]<-lapply(
+  AI_par.survey.age5_num[c(83)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6"),
+                     ordered = TRUE,
+                     labels=c("Less than HS degree",
+                              "HS degree or equivalent",
+                              "Some college but no degree",
+                              "Associates Degree",
+                              "Bachelor's Degree",
+                              "Graduate Degree")))
+AI_par.survey.age5_num[c(84)]<-lapply(
+  AI_par.survey.age5_num[c(84)],
+  function(x) factor(x,levels=c("1","4"),
+                     labels=c("Yes","No")))
+AI_par.survey.age5_num[c(85)]<-lapply(
+  AI_par.survey.age5_num[c(85)],
+  function(x) factor(x,levels=c("1","2","3"),
+                     labels=c("Part-time","Full-time","other")))
+AI_par.survey.age5_num[c(87)]<-lapply(
+  AI_par.survey.age5_num[c(87)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7","8","9"),
+                     ordered = TRUE,
+                     labels=c("<$25k","$25k - <$50k",
+                              "$50k - <$75k","$75k - <$100k",
+                              "$100k - <$125k","$125k - <$150k",
+                              "150k - <$175k","$175k - <$200k",
+                              "\u2265$200k")))
+#convert to factors (factor data frame)
+AI_par.survey.age5_fact[c(69)]<-lapply(
+  AI_par.survey.age5_fact[c(69)],
+  function(x) factor(x,levels=c(1,2,4),labels=c("Male","Female","Other"))
+)
+AI_par.survey.age5_fact[c(71)]<-lapply(
+  AI_par.survey.age5_fact[c(71)],
+  function(x) factor(x,levels=c("1","2"),
+                     labels=c("Yes","No")))
+AI_par.survey.age5_fact[c(72)]<-lapply(
+  AI_par.survey.age5_fact[c(72)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7"),
+                     labels=c("White","Black","Hispanic",
+                              "Asian","Pacific Islander",
+                              "American Indian","Other")))
+AI_par.survey.age5_fact[c(74)]<-lapply(
+  AI_par.survey.age5_fact[c(74)],
+  function(x) factor(x,levels=c("1","2","3","4"),
+                     labels=c("Very Well","Well",
+                              "Not Well","Not Well At All")))
+AI_par.survey.age5_fact[c(75)]<-lapply(
+  AI_par.survey.age5_fact[c(75)],
+  function(x) factor(x,levels=c("1","2","3"),
+                     labels=c("English","Spanish",
+                              "Other")))
+AI_par.survey.age5_fact[c(77)]<-lapply(
+  AI_par.survey.age5_fact[c(77)],
+  function(x) factor(x,levels=c("1","2","3","4","5"),
+                     labels=c("I was born in the U.S.",
+                              "Less than a year",
+                              "1-2 years",
+                              "2-5 years",
+                              "5+ years")))
+AI_par.survey.age5_fact[c(78)]<-lapply(
+  AI_par.survey.age5_fact[c(78)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7"),
+                     labels=c("Single, Never married",
+                              "Living with a Partner",
+                              "Married","Separated",
+                              "Divorced","Widowed",
+                              "Other")))
+AI_par.survey.age5_fact[c(83)]<-lapply(
+  AI_par.survey.age5_fact[c(83)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6"),
+                     ordered = TRUE,
+                     labels=c("Less than HS degree",
+                              "HS degree or equivalent",
+                              "Some college but no degree",
+                              "Associates Degree",
+                              "Bachelor's Degree",
+                              "Graduate Degree")))
+AI_par.survey.age5_fact[c(84)]<-lapply(
+  AI_par.survey.age5_fact[c(84)],
+  function(x) factor(x,levels=c("1","4"),
+                     labels=c("Yes","No")))
+AI_par.survey.age5_fact[c(85)]<-lapply(
+  AI_par.survey.age5_fact[c(85)],
+  function(x) factor(x,levels=c("1","2","3"),
+                     labels=c("Part-time","Full-time","other")))
+AI_par.survey.age5_fact[c(87)]<-lapply(
+  AI_par.survey.age5_fact[c(87)],
+  function(x) factor(x,levels=c("1","2","3","4","5","6","7","8","9"),
+                     ordered = TRUE,
+                     labels=c("<$25k","$25k - <$50k",
+                              "$50k - <$75k","$75k - <$100k",
+                              "$100k - <$125k","$125k - <$150k",
+                              "150k - <$175k","$175k - <$200k",
+                              "\u2265$200k")))
+
+#optional further filtering
+#investigate duration(seconds) variable
+summary(AI_par.survey.age5_num$`Duration(Seconds)`)
+describe(AI_par.survey.age5_num$`Duration(Seconds)`)
+#check distribution
+ggplot(AI_par.survey.age5_num,aes(x=`Duration(Seconds)`)) + 
+  geom_histogram(binwidth = 20) + 
+  xlim(80,1000) + labs(title="Every 20 seconds, Begins at 80")
+#get exact counts
+sum(AI_par.survey.age5_num$`Duration(Seconds)`<490)
+sum(AI_par.survey.age5_num$`Duration(Seconds)`<=210)
+sum(AI_par.survey.age5_num$`Duration(Seconds)`<=140)
+sum(AI_par.survey.age5_num$`Duration(Seconds)`<=90)
+#exclude anyone under 140 seconds duration
+AI_par.survey_age5_num_dur140<-subset(AI_par.survey.age5_num,
+                            `Duration(Seconds)`>140)
+AI_par.survey_age5_fact_dur140<-subset(AI_par.survey.age5_fact,
+                                      `Duration(Seconds)`>140)
+#Dichotomous education
+AI_par.survey_age5_num_dur140$`Education.Bi`<-AI_par.survey_age5_num_dur140$`Q2465. What is the highest level of school you have completed or the highest degree you have received?`
+levels(AI_par.survey_age5_num_dur140$`Education.Bi`)<-list(
+  `HS or Less`=c("Less than HS degree","HS degree or equivalent"),
+  `College or More`=c("Some college but no degree","Associates Degree",
+                      "Bachelor's Degree","Graduate Degree")
+)
+AI_par.survey_age5_num_dur140<-AI_par.survey_age5_num_dur140[c(1:83,88,84:87)]
+AI_par.survey_age5_fact_dur140$`Education.Bi`<-AI_par.survey_age5_fact_dur140$`Q2465. What is the highest level of school you have completed or the highest degree you have received?`
+levels(AI_par.survey_age5_fact_dur140$`Education.Bi`)<-list(
+  `HS or Less`=c("Less than HS degree","HS degree or equivalent"),
+  `College or More`=c("Some college but no degree","Associates Degree",
+                      "Bachelor's Degree","Graduate Degree")
+)
+AI_par.survey_age5_fact_dur140<-AI_par.survey_age5_fact_dur140[c(1:83,88,84:87)]
+#Trichotomize education
+AI_par.survey_age5_num_dur140$`Education.Tri`<-AI_par.survey_age5_num_dur140$`Q2465. What is the highest level of school you have completed or the highest degree you have received?`
+levels(AI_par.survey_age5_num_dur140$`Education.Tri`)<-list(
+  `HS or Less`=c("Less than HS degree","HS degree or equivalent"),
+  `Some College`=c("Some college but no degree","Associates Degree"),
+  `College Degree or More`=c("Bachelor's Degree","Graduate Degree")
+)
+AI_par.survey_age5_num_dur140<-AI_par.survey_age5_num_dur140[c(1:84,89,85:88)]
+AI_par.survey_age5_fact_dur140$`Education.Tri`<-AI_par.survey_age5_fact_dur140$`Q2465. What is the highest level of school you have completed or the highest degree you have received?`
+levels(AI_par.survey_age5_fact_dur140$`Education.Tri`)<-list(
+  `HS or Less`=c("Less than HS degree","HS degree or equivalent"),
+  `Some College`=c("Some college but no degree","Associates Degree"),
+  `College Degree or More`=c("Bachelor's Degree","Graduate Degree")
+)
+AI_par.survey_age5_fact_dur140<-AI_par.survey_age5_fact_dur140[c(1:84,89,85:88)]
+
+#Calculate mean, sd, and Cronbach's alpha of questions 29-31 by education and gender#
+#subgroup by education
+AI_par.survey_age5_num_dur140_hsless<-subset(AI_par.survey_age5_num_dur140,
+                                             `Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="Less than HS degree" | 
+                                               `Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="HS degree or equivalent")
+AI_par.survey_age5_num_dur140_collmore<-subset(AI_par.survey_age5_num_dur140,
+                                               !(`Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="Less than HS degree") & 
+                                                 !(`Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="HS degree or equivalent"))
+AI_par.survey_age5_fact_dur140_hsless<-subset(AI_par.survey_age5_fact_dur140,
+                                             `Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="Less than HS degree" | 
+                                               `Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="HS degree or equivalent")
+AI_par.survey_age5_fact_dur140_collmore<-subset(AI_par.survey_age5_fact_dur140,
+                                               !(`Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="Less than HS degree") & 
+                                                 !(`Q2465. What is the highest level of school you have completed or the highest degree you have received?` =="HS degree or equivalent"))
+
+#subgroup by gender
+AI_par.survey_age5_num_dur140_men<-subset(AI_par.survey_age5_num_dur140,
+                                          `Q1455. What is your gender? - Selected Choice`=="Male")
+AI_par.survey_age5_num_dur140_women<-subset(AI_par.survey_age5_num_dur140,
+                                            `Q1455. What is your gender? - Selected Choice`=="Female")
+AI_par.survey_age5_fact_dur140_men<-subset(AI_par.survey_age5_fact_dur140,
+                                          `Q1455. What is your gender? - Selected Choice`=="Male")
+AI_par.survey_age5_fact_dur140_women<-subset(AI_par.survey_age5_fact_dur140,
+                                            `Q1455. What is your gender? - Selected Choice`=="Female")
+#subgroup by language
+AI_par.survey_age5_num_dur140_english<-subset(AI_par.survey_age5_num_dur140,
+                                               `Q1859. What language do you usually speak at home? - Selected Choice`==
+                                                 "English")
+AI_par.survey_age5_num_dur140_not.english<-subset(AI_par.survey_age5_num_dur140,
+                                                   !`Q1859. What language do you usually speak at home? - Selected Choice`==
+                                                     "English")
+AI_par.survey_age5_fact_dur140_english<-subset(AI_par.survey_age5_fact_dur140,
+                                              `Q1859. What language do you usually speak at home? - Selected Choice`==
+                                                "English")
+AI_par.survey_age5_fact_dur140_not.english<-subset(AI_par.survey_age5_fact_dur140,
+                                              !`Q1859. What language do you usually speak at home? - Selected Choice`==
+                                                "English")
+
+#create data frame of questions 29-31, education, and gender
+technoference.scale<-cbind.data.frame(
+  AI_par.survey_age5_num_dur140[c(43:45,69,84)]
+)
+names(technoference.scale)<-c("Q29","Q30","Q31","Gender","Education")
+#create technoference variable
+Technoference_Scale<-rowSums(technoference.scale[,c(1:3)])/3
+technoference.scale$Technoference_Scale<-Technoference_Scale
+#fill in table of parent technoference scale
+lapply(technoference.scale[c(1:3)],mean)
+lapply(technoference.scale[c(1:3)],sd)
+mean(Technoference_Scale)
+sd(Technoference_Scale)
+#by gender
+aggregate(technoference.scale[c(1:3)],list(
+  technoference.scale$Gender),mean)
+aggregate(technoference.scale[c(1:3)],list(
+  technoference.scale$Gender),sd)
+aggregate(technoference.scale[c(6)],list(
+  technoference.scale$Gender),mean)
+aggregate(technoference.scale[c(6)],list(
+  technoference.scale$Gender),sd)
+#by education
+aggregate(technoference.scale[c(1:3)],list(
+  technoference.scale$Education),mean)
+aggregate(technoference.scale[c(1:3)],list(
+  technoference.scale$Education),sd)
+aggregate(technoference.scale[c(6)],list(
+  technoference.scale$Education),mean)
+aggregate(technoference.scale[c(6)],list(
+  technoference.scale$Education),sd)
+```
+
+## Table 1
+
+```{r cars}
+#make tableone
+table1.df<-data.frame(Age=AI_par.survey_age5_fact_dur140$`Q1254. What is your age?`,
+                      Gender=AI_par.survey_age5_fact_dur140$`Q1455. What is your gender? - Selected Choice`,
+                      Race=AI_par.survey_age5_fact_dur140$`Q1657. What race do you consider yourself to be? - Selected Choice`,
+                      Language_Spoken_at_Home=AI_par.survey_age5_fact_dur140$`Q1859. What language do you usually speak at home? - Selected Choice`,
+                      Marital_Status=AI_par.survey_age5_fact_dur140$`Q2061. How would you describe your marital status? - Selected Choice`,
+                      Number_of_Children=AI_par.survey_age5_fact_dur140$`Q2263. How many children do you have?`,
+                      Age_of_Youngest_Child=AI_par.survey_age5_fact_dur140$`Q2364. What is the age of your YOUNGEST CHILD?`,
+                      Education=AI_par.survey_age5_fact_dur140$Education.Tri,
+                      Work=AI_par.survey_age5_fact_dur140$`Q2566. Right now, do you work?`,
+                      Income=AI_par.survey_age5_fact_dur140$`Q2768. Please mark the group that is closest to your total household income in the past 12 months.`)
+list.vars<-c("Age","Gender","Race","Language_Spoken_at_Home","Marital_Status",
+             "Number_of_Children","Age_of_Youngest_Child","Education","Work","Income")
+cat.vars<-c("Gender","Race","Language_Spoken_at_Home","Marital_Status",
+            "Education","Work")
+table1<-CreateTableOne(vars=list.vars,
+                       data = table1.df,
+                       factorVars = cat.vars,
+                       includeNA = TRUE)
+kableone(table1)
+```
